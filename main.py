@@ -4,6 +4,9 @@ import tkinter as tk
 from database import DatabaseManager
 from datetime import datetime, date
 import os
+from sistema_politicas import SistemaPoliticas
+from venda_multipla import VendaMultipla
+from nota_fiscal import NotaFiscal
 
 # Configuração do tema
 ctk.set_appearance_mode("dark")  # "system", "dark", "light"
@@ -16,8 +19,9 @@ class BilheteriaApp:
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         
-        # Inicializar banco de dados
+        # Inicializar banco de dados e sistema de políticas
         self.db = DatabaseManager()
+        self.sistema_politicas = SistemaPoliticas()
         
         # Variáveis de controle
         self.usuario_logado = False
@@ -154,12 +158,77 @@ class BilheteriaApp:
         """Configura a aba de vendas"""
         vendas_frame = self.notebook.tab("Vendas")
         
-        # Frame de venda
-        venda_frame = ctk.CTkFrame(vendas_frame)
-        venda_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        # Sistema de navegação
+        nav_frame = ctk.CTkFrame(vendas_frame)
+        nav_frame.pack(fill="x", padx=20, pady=(10, 0))
         
+        # Botões de navegação
+        venda_btn = ctk.CTkButton(nav_frame, text="💰 Nova Venda", 
+                                 command=lambda: self.mostrar_tela_venda("nova"),
+                                 width=150, height=35)
+        venda_btn.pack(side="left", padx=5, pady=10)
+        
+        multipla_btn = ctk.CTkButton(nav_frame, text="👥 Venda Múltipla", 
+                                    command=lambda: self.mostrar_tela_venda("multipla"),
+                                    width=150, height=35)
+        multipla_btn.pack(side="left", padx=5, pady=10)
+        
+        nota_btn = ctk.CTkButton(nav_frame, text="🧾 Ver Nota", 
+                                command=lambda: self.mostrar_tela_venda("nota"),
+                                width=150, height=35)
+        nota_btn.pack(side="right", padx=5, pady=10)
+        
+        # Frame principal de vendas
+        self.venda_main_frame = ctk.CTkFrame(vendas_frame)
+        self.venda_main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Inicializar com venda simples
+        self.mostrar_tela_venda("nova")
+    
+    def mostrar_tela_venda(self, tipo):
+        """Mostra diferentes telas de venda"""
+        # Limpar frame principal
+        for widget in self.venda_main_frame.winfo_children():
+            widget.destroy()
+        
+        if tipo == "nova":
+            self.configurar_venda_simples()
+        elif tipo == "multipla":
+            self.configurar_venda_multipla()
+        elif tipo == "nota":
+            self.configurar_visualizacao_nota()
+    
+    def configurar_venda_multipla(self):
+        """Configura tela de venda múltipla"""
+        # Limpar frame principal
+        for widget in self.venda_main_frame.winfo_children():
+            widget.destroy()
+        
+        # Inicializar sistema de venda múltipla
+        self.venda_multipla = VendaMultipla(
+            self.venda_main_frame, 
+            self.db, 
+            self.atualizar_dados_callback
+        )
+    
+    def configurar_visualizacao_nota(self):
+        """Configura tela de visualização de nota"""
+        # Limpar frame principal
+        for widget in self.venda_main_frame.winfo_children():
+            widget.destroy()
+        
+        # Inicializar sistema de nota fiscal
+        self.nota_fiscal = NotaFiscal(self.venda_main_frame, self.db)
+    
+    def atualizar_dados_callback(self):
+        """Callback para atualizar dados após venda"""
+        if hasattr(self, 'atualizar_dados'):
+            self.atualizar_dados()
+    
+    def configurar_venda_simples(self):
+        """Configura tela de venda simples"""
         # Título
-        titulo = ctk.CTkLabel(venda_frame, text="Registrar Venda", 
+        titulo = ctk.CTkLabel(self.venda_main_frame, text="Venda Individual", 
                              font=ctk.CTkFont(size=20, weight="bold"))
         titulo.pack(pady=(20, 30))
         
@@ -177,12 +246,20 @@ class BilheteriaApp:
         self.tipo_ingresso.pack(pady=(0, 10), padx=20)
         self.tipo_ingresso.set("Inteira (R$ 10,00)")
         
-        # Campo para justificativa (aparece quando seleciona meia ou gratuito)
-        ctk.CTkLabel(form_frame, text="Justificativa (para Meia/Gratuito):", 
-                    font=ctk.CTkFont(size=12)).pack(anchor="w", pady=(10, 5), padx=20)
-        self.justificativa_entry = ctk.CTkEntry(form_frame, placeholder_text="Ex: Estudante, Idoso 65 anos, Professor rede pública...",
+        # Frame para justificativa (inicialmente oculto)
+        self.justificativa_frame = ctk.CTkFrame(form_frame)
+        self.justificativa_frame.pack(fill="x", padx=20, pady=(10, 10))
+        
+        self.justificativa_label = ctk.CTkLabel(self.justificativa_frame, text="Justificativa:", 
+                                              font=ctk.CTkFont(size=12))
+        self.justificativa_label.pack(anchor="w", pady=(10, 5), padx=20)
+        
+        self.justificativa_entry = ctk.CTkEntry(self.justificativa_frame, placeholder_text="Ex: Estudante, Idoso 65 anos, Professor rede pública...",
                                                width=400, height=35)
         self.justificativa_entry.pack(pady=(0, 10), padx=20)
+        
+        # Inicialmente oculto
+        self.justificativa_frame.pack_forget()
         
         # Seção de pagamento
         ctk.CTkLabel(form_frame, text="💳 Forma de Pagamento:", 
@@ -221,9 +298,10 @@ class BilheteriaApp:
                                       width=120, height=30)
         calc_troco_btn.pack(side="right", padx=5, pady=5)
         
-        # Bind para calcular troco automaticamente
+        # Bind para calcular troco automaticamente e mostrar justificativa
         self.valor_pago_entry.bind('<KeyRelease>', lambda e: self.calcular_troco())
         self.forma_pagamento.bind('<Button-1>', lambda e: self.atualizar_campos_pagamento())
+        self.tipo_ingresso.bind('<Button-1>', lambda e: self.atualizar_campo_justificativa())
         
         # Informações do cliente (opcional)
         ctk.CTkLabel(form_frame, text="Informações do Cliente (Opcional):", 
@@ -388,25 +466,18 @@ class BilheteriaApp:
             messagebox.showerror("Erro", "Selecione um tipo de ingresso!")
             return
         
-        # Determinar preço baseado no tipo
-        if "Inteira" in tipo:
-            preco = 10.0
-            tipo_ingresso = "Inteira"
-            justificativa = None
-        elif "Meia" in tipo:
-            preco = 5.0
-            tipo_ingresso = "Meia"
-            justificativa = self.justificativa_entry.get().strip() or None
-            if not justificativa:
-                messagebox.showwarning("Atenção", "Para meia entrada, informe a justificativa (ex: Estudante, Idoso 60+, etc.)")
-                return
-        else:  # Gratuito
-            preco = 0.0
-            tipo_ingresso = "Gratuito"
-            justificativa = self.justificativa_entry.get().strip() or None
-            if not justificativa:
-                messagebox.showwarning("Atenção", "Para gratuidade, informe a justificativa (ex: Terça-feira, Criança até 5 anos, etc.)")
-                return
+        # Usar sistema inteligente de políticas
+        justificativa_input = self.justificativa_entry.get().strip() or ""
+        
+        # Aplicar políticas automaticamente
+        resultado_politica = self.sistema_politicas.aplicar_desconto_automatico({
+            'justificativa': justificativa_input,
+            'data_venda': datetime.now()
+        })
+        
+        tipo_ingresso = resultado_politica['tipo']
+        preco = resultado_politica['preco']
+        justificativa = resultado_politica['justificativa']
         
         # Obter dados do cliente (opcionais)
         nome = self.nome_entry.get().strip() or None
@@ -477,10 +548,11 @@ class BilheteriaApp:
     def limpar_formulario(self):
         """Limpa o formulário de venda"""
         self.tipo_ingresso.set("Inteira (R$ 10,00)")
+        self.justificativa_frame.pack_forget()  # Ocultar campo de justificativa
         self.justificativa_entry.delete(0, tk.END)
         self.forma_pagamento.set("Dinheiro")
         self.valor_pago_entry.delete(0, tk.END)
-        self.troco_label.configure(text="R$ 0,00")
+        self.troco_label.configure(text="R$ 0,00", text_color="white")
         self.nome_entry.delete(0, tk.END)
         self.estado_entry.delete(0, tk.END)
         self.cidade_entry.delete(0, tk.END)
@@ -528,6 +600,35 @@ class BilheteriaApp:
             self.troco_label.configure(text="R$ 0,00", text_color="green")
         else:
             self.troco_label.configure(text="R$ 0,00", text_color="white")
+    
+    def atualizar_campo_justificativa(self):
+        """Mostra ou oculta o campo de justificativa baseado no tipo de ingresso"""
+        tipo = self.tipo_ingresso.get()
+        
+        # Aguardar um pouco para o valor ser atualizado
+        self.root.after(100, lambda: self._atualizar_justificativa_delayed())
+    
+    def _atualizar_justificativa_delayed(self):
+        """Atualiza o campo de justificativa após um pequeno delay"""
+        tipo = self.tipo_ingresso.get()
+        
+        if "Meia" in tipo or "Gratuito" in tipo:
+            # Mostrar campo de justificativa
+            self.justificativa_frame.pack(fill="x", padx=20, pady=(10, 10))
+            
+            # Atualizar placeholder baseado no tipo
+            if "Meia" in tipo:
+                placeholder = "Ex: Estudante, Idoso 60+, Professor particular, Pessoa com deficiência..."
+                self.justificativa_label.configure(text="Justificativa para Meia Entrada:")
+            else:  # Gratuito
+                placeholder = "Ex: Terça-feira, Criança até 5 anos, Professor rede pública, Funcionário museu..."
+                self.justificativa_label.configure(text="Justificativa para Gratuidade:")
+            
+            self.justificativa_entry.configure(placeholder_text=placeholder)
+        else:
+            # Ocultar campo de justificativa
+            self.justificativa_frame.pack_forget()
+            self.justificativa_entry.delete(0, tk.END)
     
     def gerar_relatorio(self):
         """Gera relatório de vendas"""
