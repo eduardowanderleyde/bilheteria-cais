@@ -19,6 +19,9 @@ class DatabaseManager:
                 data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 tipo_ingresso TEXT NOT NULL,
                 preco REAL NOT NULL,
+                forma_pagamento TEXT NOT NULL,
+                valor_pago REAL NOT NULL,
+                troco REAL DEFAULT 0,
                 nome_cliente TEXT,
                 estado TEXT,
                 cidade TEXT,
@@ -56,15 +59,15 @@ class DatabaseManager:
         conn.close()
         return resultado is not None
     
-    def registrar_venda(self, tipo_ingresso, preco, nome_cliente=None, estado=None, cidade=None, observacoes=None):
+    def registrar_venda(self, tipo_ingresso, preco, forma_pagamento, valor_pago, troco=0, nome_cliente=None, estado=None, cidade=None, observacoes=None):
         """Registra uma nova venda"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
-            INSERT INTO vendas (tipo_ingresso, preco, nome_cliente, estado, cidade, observacoes)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (tipo_ingresso, preco, nome_cliente, estado, cidade, observacoes))
+            INSERT INTO vendas (tipo_ingresso, preco, forma_pagamento, valor_pago, troco, nome_cliente, estado, cidade, observacoes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (tipo_ingresso, preco, forma_pagamento, valor_pago, troco, nome_cliente, estado, cidade, observacoes))
         
         conn.commit()
         venda_id = cursor.lastrowid
@@ -161,9 +164,55 @@ class DatabaseManager:
         ''')
         vendas_por_tipo = cursor.fetchall()
         
+        # Vendas por forma de pagamento
+        cursor.execute('''
+            SELECT forma_pagamento, COUNT(*), SUM(preco)
+            FROM vendas 
+            GROUP BY forma_pagamento
+        ''')
+        vendas_por_pagamento = cursor.fetchall()
+        
         conn.close()
         return {
             'total_vendas': total_vendas,
             'total_arrecadado': total_arrecadado,
-            'vendas_por_tipo': vendas_por_tipo
+            'vendas_por_tipo': vendas_por_tipo,
+            'vendas_por_pagamento': vendas_por_pagamento
         }
+    
+    def obter_relatorio_pagamentos(self, data_inicio=None, data_fim=None):
+        """Obtém relatório de vendas por forma de pagamento"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        if data_inicio and data_fim:
+            query = '''
+                SELECT 
+                    forma_pagamento,
+                    COUNT(*) as quantidade,
+                    SUM(preco) as total_vendido,
+                    SUM(valor_pago) as total_recebido,
+                    SUM(troco) as total_troco
+                FROM vendas 
+                WHERE DATE(data_venda) BETWEEN ? AND ?
+                GROUP BY forma_pagamento
+                ORDER BY total_vendido DESC
+            '''
+            cursor.execute(query, (data_inicio, data_fim))
+        else:
+            query = '''
+                SELECT 
+                    forma_pagamento,
+                    COUNT(*) as quantidade,
+                    SUM(preco) as total_vendido,
+                    SUM(valor_pago) as total_recebido,
+                    SUM(troco) as total_troco
+                FROM vendas 
+                GROUP BY forma_pagamento
+                ORDER BY total_vendido DESC
+            '''
+            cursor.execute(query)
+        
+        relatorio = cursor.fetchall()
+        conn.close()
+        return relatorio

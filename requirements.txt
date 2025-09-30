@@ -1,4 +1,3 @@
 customtkinter==5.2.0
-sqlite3
 pillow==10.0.0
-datetime
+pyperclip==1.8.2

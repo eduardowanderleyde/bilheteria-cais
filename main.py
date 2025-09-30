@@ -138,9 +138,17 @@ class BilheteriaApp:
         self.notebook.add("Relatórios")
         self.configurar_aba_relatorios()
         
+        # Aba de Pagamentos
+        self.notebook.add("Pagamentos")
+        self.configurar_aba_pagamentos()
+        
         # Aba de Dados
         self.notebook.add("Dados Salvos")
         self.configurar_aba_dados()
+        
+        # Aba de Informações do Banco
+        self.notebook.add("Informações do Banco")
+        self.configurar_aba_banco()
     
     def configurar_aba_vendas(self):
         """Configura a aba de vendas"""
@@ -168,6 +176,54 @@ class BilheteriaApp:
                                                    width=400, height=35)
         self.tipo_ingresso.pack(pady=(0, 10), padx=20)
         self.tipo_ingresso.set("Inteira (R$ 10,00)")
+        
+        # Campo para justificativa (aparece quando seleciona meia ou gratuito)
+        ctk.CTkLabel(form_frame, text="Justificativa (para Meia/Gratuito):", 
+                    font=ctk.CTkFont(size=12)).pack(anchor="w", pady=(10, 5), padx=20)
+        self.justificativa_entry = ctk.CTkEntry(form_frame, placeholder_text="Ex: Estudante, Idoso 65 anos, Professor rede pública...",
+                                               width=400, height=35)
+        self.justificativa_entry.pack(pady=(0, 10), padx=20)
+        
+        # Seção de pagamento
+        ctk.CTkLabel(form_frame, text="💳 Forma de Pagamento:", 
+                    font=ctk.CTkFont(size=14)).pack(anchor="w", pady=(20, 5), padx=20)
+        
+        self.forma_pagamento = ctk.CTkSegmentedButton(form_frame, 
+                                                     values=["Dinheiro", "Cartão Débito", "Cartão Crédito", "PIX", "Gratuito"],
+                                                     width=400, height=35)
+        self.forma_pagamento.pack(pady=(0, 10), padx=20)
+        self.forma_pagamento.set("Dinheiro")
+        
+        # Frame para valores de pagamento
+        self.pagamento_frame = ctk.CTkFrame(form_frame)
+        self.pagamento_frame.pack(fill="x", padx=20, pady=(0, 10))
+        
+        # Valor pago e troco
+        valores_frame = ctk.CTkFrame(self.pagamento_frame)
+        valores_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(valores_frame, text="Valor Pago:", 
+                    font=ctk.CTkFont(size=12)).pack(side="left", padx=5, pady=5)
+        self.valor_pago_entry = ctk.CTkEntry(valores_frame, placeholder_text="0.00",
+                                            width=100, height=30)
+        self.valor_pago_entry.pack(side="left", padx=5, pady=5)
+        
+        ctk.CTkLabel(valores_frame, text="Troco:", 
+                    font=ctk.CTkFont(size=12)).pack(side="left", padx=(20, 5), pady=5)
+        self.troco_label = ctk.CTkLabel(valores_frame, text="R$ 0,00", 
+                                       font=ctk.CTkFont(size=12, weight="bold"),
+                                       text_color="green")
+        self.troco_label.pack(side="left", padx=5, pady=5)
+        
+        # Botão para calcular troco
+        calc_troco_btn = ctk.CTkButton(valores_frame, text="Calcular Troco", 
+                                      command=self.calcular_troco,
+                                      width=120, height=30)
+        calc_troco_btn.pack(side="right", padx=5, pady=5)
+        
+        # Bind para calcular troco automaticamente
+        self.valor_pago_entry.bind('<KeyRelease>', lambda e: self.calcular_troco())
+        self.forma_pagamento.bind('<Button-1>', lambda e: self.atualizar_campos_pagamento())
         
         # Informações do cliente (opcional)
         ctk.CTkLabel(form_frame, text="Informações do Cliente (Opcional):", 
@@ -210,16 +266,48 @@ class BilheteriaApp:
                                   font=ctk.CTkFont(size=16))
         limpar_btn.pack(side="left")
         
-        # Informações sobre preços
+        # Informações sobre preços e políticas
         info_frame = ctk.CTkFrame(vendas_frame)
         info_frame.pack(fill="x", padx=20, pady=(0, 20))
         
-        info_text = ("💡 Informações: Inteira R$ 10,00 | Meia R$ 5,00 | Gratuito (Terças-feiras e Idosos) | "
-                    "Todos os campos do cliente são opcionais")
-        info_label = ctk.CTkLabel(info_frame, text=info_text, 
-                                 font=ctk.CTkFont(size=12),
-                                 text_color="gray")
-        info_label.pack(pady=15)
+        # Criar frame expansível para políticas
+        politicas_frame = ctk.CTkFrame(info_frame)
+        politicas_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(politicas_frame, text="📋 Políticas de Ingresso - Cais do Sertão", 
+                    font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(10, 5))
+        
+        # Preços básicos
+        precos_text = "💰 Preços: Inteira R$ 10,00 | Meia R$ 5,00 | Gratuito (conforme política)"
+        ctk.CTkLabel(politicas_frame, text=precos_text, 
+                    font=ctk.CTkFont(size=12, weight="bold")).pack(pady=5)
+        
+        # Políticas de meia entrada
+        meia_text = ("🎫 MEIA ENTRADA (R$ 5,00):\n"
+                    "• Pessoas com idade a partir de 60 anos\n"
+                    "• Pessoas com deficiência e 1 acompanhante\n"
+                    "• Estudantes de escolas e universidades particulares\n"
+                    "• Professores de escolas e universidades particulares")
+        ctk.CTkLabel(politicas_frame, text=meia_text, 
+                    font=ctk.CTkFont(size=11),
+                    text_color="blue").pack(anchor="w", padx=10, pady=5)
+        
+        # Políticas de gratuidade
+        gratuito_text = ("🎁 GRATUIDADE:\n"
+                        "• Às terças-feiras: gratuito para TODOS\n"
+                        "• Demais dias:\n"
+                        "  - Crianças com até 5 anos de idade\n"
+                        "  - Alunos e professores de rede pública de ensino\n"
+                        "  - Funcionários de museus\n"
+                        "  - Guias de turismo\n"
+                        "⚠️ Mediante comprovação")
+        ctk.CTkLabel(politicas_frame, text=gratuito_text, 
+                    font=ctk.CTkFont(size=11),
+                    text_color="green").pack(anchor="w", padx=10, pady=5)
+        
+        ctk.CTkLabel(politicas_frame, text="💡 Todos os campos do cliente são opcionais", 
+                    font=ctk.CTkFont(size=11),
+                    text_color="gray").pack(pady=(5, 10))
     
     def configurar_aba_relatorios(self):
         """Configura a aba de relatórios"""
@@ -304,32 +392,75 @@ class BilheteriaApp:
         if "Inteira" in tipo:
             preco = 10.0
             tipo_ingresso = "Inteira"
+            justificativa = None
         elif "Meia" in tipo:
             preco = 5.0
             tipo_ingresso = "Meia"
+            justificativa = self.justificativa_entry.get().strip() or None
+            if not justificativa:
+                messagebox.showwarning("Atenção", "Para meia entrada, informe a justificativa (ex: Estudante, Idoso 60+, etc.)")
+                return
         else:  # Gratuito
             preco = 0.0
             tipo_ingresso = "Gratuito"
+            justificativa = self.justificativa_entry.get().strip() or None
+            if not justificativa:
+                messagebox.showwarning("Atenção", "Para gratuidade, informe a justificativa (ex: Terça-feira, Criança até 5 anos, etc.)")
+                return
         
         # Obter dados do cliente (opcionais)
         nome = self.nome_entry.get().strip() or None
         estado = self.estado_entry.get().strip() or None
         cidade = self.cidade_entry.get().strip() or None
         
+        # Obter dados de pagamento
+        forma_pagamento = self.forma_pagamento.get()
+        valor_pago_str = self.valor_pago_entry.get().strip()
+        
+        # Validar pagamento
+        if forma_pagamento == "Gratuito":
+            valor_pago = 0.0
+            troco = 0.0
+        else:
+            if not valor_pago_str:
+                messagebox.showerror("Erro", "Informe o valor pago!")
+                return
+            
+            try:
+                valor_pago = float(valor_pago_str.replace(',', '.'))
+                if valor_pago < preco:
+                    messagebox.showerror("Erro", f"Valor pago (R$ {valor_pago:.2f}) é menor que o preço (R$ {preco:.2f})!")
+                    return
+                troco = valor_pago - preco
+            except ValueError:
+                messagebox.showerror("Erro", "Valor pago inválido! Use apenas números.")
+                return
+        
         try:
             # Registrar no banco de dados
             venda_id = self.db.registrar_venda(
                 tipo_ingresso=tipo_ingresso,
                 preco=preco,
+                forma_pagamento=forma_pagamento,
+                valor_pago=valor_pago,
+                troco=troco,
                 nome_cliente=nome,
                 estado=estado,
-                cidade=cidade
+                cidade=cidade,
+                observacoes=justificativa
             )
             
             # Confirmar sucesso
             mensagem = f"Venda registrada com sucesso!\nID: {venda_id}\nTipo: {tipo_ingresso}\nPreço: R$ {preco:.2f}"
+            mensagem += f"\nPagamento: {forma_pagamento}"
+            if valor_pago > 0:
+                mensagem += f"\nValor pago: R$ {valor_pago:.2f}"
+                if troco > 0:
+                    mensagem += f"\nTroco: R$ {troco:.2f}"
             if nome:
                 mensagem += f"\nCliente: {nome}"
+            if justificativa:
+                mensagem += f"\nJustificativa: {justificativa}"
             
             messagebox.showinfo("Sucesso", mensagem)
             
@@ -346,9 +477,57 @@ class BilheteriaApp:
     def limpar_formulario(self):
         """Limpa o formulário de venda"""
         self.tipo_ingresso.set("Inteira (R$ 10,00)")
+        self.justificativa_entry.delete(0, tk.END)
+        self.forma_pagamento.set("Dinheiro")
+        self.valor_pago_entry.delete(0, tk.END)
+        self.troco_label.configure(text="R$ 0,00")
         self.nome_entry.delete(0, tk.END)
         self.estado_entry.delete(0, tk.END)
         self.cidade_entry.delete(0, tk.END)
+    
+    def calcular_troco(self):
+        """Calcula o troco baseado no preço do ingresso e valor pago"""
+        try:
+            # Obter preço do ingresso
+            tipo = self.tipo_ingresso.get()
+            if "Inteira" in tipo:
+                preco = 10.0
+            elif "Meia" in tipo:
+                preco = 5.0
+            else:  # Gratuito
+                preco = 0.0
+            
+            # Obter valor pago
+            valor_pago_str = self.valor_pago_entry.get().strip()
+            if not valor_pago_str:
+                self.troco_label.configure(text="R$ 0,00")
+                return
+            
+            valor_pago = float(valor_pago_str.replace(',', '.'))
+            troco = max(0, valor_pago - preco)
+            
+            # Atualizar label do troco
+            self.troco_label.configure(text=f"R$ {troco:.2f}")
+            
+            # Mudar cor baseada no troco
+            if troco > 0:
+                self.troco_label.configure(text_color="green")
+            else:
+                self.troco_label.configure(text_color="white")
+                
+        except ValueError:
+            self.troco_label.configure(text="R$ 0,00", text_color="red")
+    
+    def atualizar_campos_pagamento(self):
+        """Atualiza os campos de pagamento baseado na forma selecionada"""
+        forma = self.forma_pagamento.get()
+        
+        if forma == "Gratuito":
+            self.valor_pago_entry.delete(0, tk.END)
+            self.valor_pago_entry.insert(0, "0.00")
+            self.troco_label.configure(text="R$ 0,00", text_color="green")
+        else:
+            self.troco_label.configure(text="R$ 0,00", text_color="white")
     
     def gerar_relatorio(self):
         """Gera relatório de vendas"""
@@ -429,6 +608,152 @@ class BilheteriaApp:
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao gerar relatório: {str(e)}")
     
+    def configurar_aba_pagamentos(self):
+        """Configura a aba de relatórios de pagamento"""
+        pagamentos_frame = self.notebook.tab("Pagamentos")
+        
+        # Frame de filtros
+        filtros_frame = ctk.CTkFrame(pagamentos_frame)
+        filtros_frame.pack(fill="x", padx=20, pady=20)
+        
+        ctk.CTkLabel(filtros_frame, text="💳 Relatórios de Pagamento", 
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 10))
+        
+        # Filtros de data
+        datas_frame = ctk.CTkFrame(filtros_frame)
+        datas_frame.pack(pady=10, padx=20, fill="x")
+        
+        ctk.CTkLabel(datas_frame, text="Data Início:").pack(side="left", padx=10, pady=10)
+        self.data_inicio_pag = ctk.CTkEntry(datas_frame, placeholder_text="YYYY-MM-DD", width=120)
+        self.data_inicio_pag.pack(side="left", padx=(0, 20), pady=10)
+        
+        ctk.CTkLabel(datas_frame, text="Data Fim:").pack(side="left", padx=10, pady=10)
+        self.data_fim_pag = ctk.CTkEntry(datas_frame, placeholder_text="YYYY-MM-DD", width=120)
+        self.data_fim_pag.pack(side="left", padx=(0, 20), pady=10)
+        
+        gerar_pag_btn = ctk.CTkButton(datas_frame, text="📊 Gerar Relatório", 
+                                     command=self.gerar_relatorio_pagamentos,
+                                     width=150)
+        gerar_pag_btn.pack(side="right", padx=20, pady=10)
+        
+        # Frame de resultados
+        self.resultados_pag_frame = ctk.CTkScrollableFrame(pagamentos_frame)
+        self.resultados_pag_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        # Mostrar relatório inicial
+        self.gerar_relatorio_pagamentos()
+    
+    def gerar_relatorio_pagamentos(self):
+        """Gera relatório de pagamentos"""
+        # Limpar resultados anteriores
+        for widget in self.resultados_pag_frame.winfo_children():
+            widget.destroy()
+        
+        # Obter datas
+        data_inicio = self.data_inicio_pag.get().strip()
+        data_fim = self.data_fim_pag.get().strip()
+        
+        try:
+            # Gerar relatório
+            if data_inicio and data_fim:
+                relatorio = self.db.obter_relatorio_pagamentos(data_inicio, data_fim)
+                titulo = f"Relatório de Pagamentos: {data_inicio} a {data_fim}"
+            else:
+                relatorio = self.db.obter_relatorio_pagamentos()
+                titulo = "Relatório de Pagamentos - Geral"
+            
+            # Título
+            ctk.CTkLabel(self.resultados_pag_frame, text=titulo, 
+                        font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(10, 20))
+            
+            if not relatorio:
+                ctk.CTkLabel(self.resultados_pag_frame, text="Nenhuma venda encontrada no período.", 
+                            font=ctk.CTkFont(size=14)).pack(pady=20)
+                return
+            
+            # Cabeçalho da tabela
+            header_frame = ctk.CTkFrame(self.resultados_pag_frame)
+            header_frame.pack(fill="x", pady=(0, 10), padx=10)
+            
+            headers = ["Forma de Pagamento", "Quantidade", "Total Vendido", "Total Recebido", "Total Troco"]
+            for i, header in enumerate(headers):
+                label = ctk.CTkLabel(header_frame, text=header, 
+                                   font=ctk.CTkFont(size=14, weight="bold"))
+                label.grid(row=0, column=i, padx=10, pady=10, sticky="ew")
+                header_frame.grid_columnconfigure(i, weight=1)
+            
+            # Dados do relatório
+            total_vendido = 0
+            total_recebido = 0
+            total_troco = 0
+            
+            for item in relatorio:
+                forma, quantidade, vendido, recebido, troco = item
+                total_vendido += vendido
+                total_recebido += recebido
+                total_troco += troco
+                
+                item_frame = ctk.CTkFrame(self.resultados_pag_frame)
+                item_frame.pack(fill="x", pady=2, padx=10)
+                
+                # Forma de pagamento
+                pagamento_label = ctk.CTkLabel(item_frame, text=forma, font=ctk.CTkFont(size=12))
+                if forma == "Gratuito":
+                    pagamento_label.configure(text_color="green")
+                elif "Cartão" in forma:
+                    pagamento_label.configure(text_color="blue")
+                pagamento_label.grid(row=0, column=0, padx=10, pady=8, sticky="w")
+                
+                # Quantidade
+                ctk.CTkLabel(item_frame, text=str(quantidade), font=ctk.CTkFont(size=12)).grid(
+                    row=0, column=1, padx=10, pady=8, sticky="w")
+                
+                # Total vendido
+                ctk.CTkLabel(item_frame, text=f"R$ {vendido:.2f}", font=ctk.CTkFont(size=12)).grid(
+                    row=0, column=2, padx=10, pady=8, sticky="w")
+                
+                # Total recebido
+                ctk.CTkLabel(item_frame, text=f"R$ {recebido:.2f}", font=ctk.CTkFont(size=12)).grid(
+                    row=0, column=3, padx=10, pady=8, sticky="w")
+                
+                # Total troco
+                ctk.CTkLabel(item_frame, text=f"R$ {troco:.2f}", font=ctk.CTkFont(size=12)).grid(
+                    row=0, column=4, padx=10, pady=8, sticky="w")
+                
+                item_frame.grid_columnconfigure(0, weight=1)
+                item_frame.grid_columnconfigure(1, weight=1)
+                item_frame.grid_columnconfigure(2, weight=1)
+                item_frame.grid_columnconfigure(3, weight=1)
+                item_frame.grid_columnconfigure(4, weight=1)
+            
+            # Totais gerais
+            total_frame = ctk.CTkFrame(self.resultados_pag_frame)
+            total_frame.pack(fill="x", pady=(20, 10), padx=10)
+            
+            # Métricas principais
+            metricas_frame = ctk.CTkFrame(total_frame)
+            metricas_frame.pack(fill="x", padx=10, pady=10)
+            
+            col1, col2, col3 = ctk.CTkFrame(metricas_frame), ctk.CTkFrame(metricas_frame), ctk.CTkFrame(metricas_frame)
+            col1.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+            col2.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+            col3.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+            
+            ctk.CTkLabel(col1, text="Total Vendido", font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+            ctk.CTkLabel(col1, text=f"R$ {total_vendido:.2f}", 
+                        font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(0, 10))
+            
+            ctk.CTkLabel(col2, text="Total Recebido", font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+            ctk.CTkLabel(col2, text=f"R$ {total_recebido:.2f}", 
+                        font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(0, 10))
+            
+            ctk.CTkLabel(col3, text="Total Troco", font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+            ctk.CTkLabel(col3, text=f"R$ {total_troco:.2f}", 
+                        font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(0, 10))
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao gerar relatório de pagamentos: {str(e)}")
+    
     def filtrar_dados(self):
         """Filtra dados por data"""
         data_filtro = self.data_filtro.get().strip()
@@ -462,7 +787,7 @@ class BilheteriaApp:
             header_frame = ctk.CTkFrame(self.dados_frame)
             header_frame.pack(fill="x", pady=(0, 10), padx=10)
             
-            headers = ["ID", "Data/Hora", "Tipo", "Preço", "Cliente", "Estado", "Cidade"]
+            headers = ["ID", "Data/Hora", "Tipo", "Preço", "Pagamento", "Valor Pago", "Troco", "Cliente", "Estado", "Cidade", "Justificativa"]
             for i, header in enumerate(headers):
                 label = ctk.CTkLabel(header_frame, text=header, 
                                    font=ctk.CTkFont(size=12, weight="bold"))
@@ -471,7 +796,7 @@ class BilheteriaApp:
             
             # Dados das vendas
             for venda in vendas:
-                venda_id, data_venda, tipo, preco, nome, estado, cidade, _ = venda
+                venda_id, data_venda, tipo, preco, forma_pagamento, valor_pago, troco, nome, estado, cidade, observacoes = venda
                 
                 item_frame = ctk.CTkFrame(self.dados_frame)
                 item_frame.pack(fill="x", pady=2, padx=10)
@@ -485,28 +810,69 @@ class BilheteriaApp:
                 ctk.CTkLabel(item_frame, text=data_formatada, font=ctk.CTkFont(size=11)).grid(
                     row=0, column=1, padx=5, pady=6, sticky="w")
                 
-                # Tipo
-                ctk.CTkLabel(item_frame, text=tipo, font=ctk.CTkFont(size=11)).grid(
-                    row=0, column=2, padx=5, pady=6, sticky="w")
+                # Tipo com cor
+                tipo_label = ctk.CTkLabel(item_frame, text=tipo, font=ctk.CTkFont(size=11))
+                if tipo == "Inteira":
+                    tipo_label.configure(text_color="white")
+                elif tipo == "Meia":
+                    tipo_label.configure(text_color="blue")
+                else:  # Gratuito
+                    tipo_label.configure(text_color="green")
+                tipo_label.grid(row=0, column=2, padx=5, pady=6, sticky="w")
                 
                 # Preço
-                ctk.CTkLabel(item_frame, text=f"R$ {preco:.2f}", font=ctk.CTkFont(size=11)).grid(
-                    row=0, column=3, padx=5, pady=6, sticky="w")
+                preco_text = f"R$ {preco:.2f}" if preco > 0 else "GRATUITO"
+                preco_label = ctk.CTkLabel(item_frame, text=preco_text, font=ctk.CTkFont(size=11))
+                if preco == 0:
+                    preco_label.configure(text_color="green")
+                preco_label.grid(row=0, column=3, padx=5, pady=6, sticky="w")
+                
+                # Forma de Pagamento
+                pagamento_label = ctk.CTkLabel(item_frame, text=forma_pagamento, font=ctk.CTkFont(size=11))
+                if forma_pagamento == "Gratuito":
+                    pagamento_label.configure(text_color="green")
+                elif "Cartão" in forma_pagamento:
+                    pagamento_label.configure(text_color="blue")
+                pagamento_label.grid(row=0, column=4, padx=5, pady=6, sticky="w")
+                
+                # Valor Pago
+                valor_pago_text = f"R$ {valor_pago:.2f}" if valor_pago > 0 else "GRATUITO"
+                ctk.CTkLabel(item_frame, text=valor_pago_text, font=ctk.CTkFont(size=11)).grid(
+                    row=0, column=5, padx=5, pady=6, sticky="w")
+                
+                # Troco
+                troco_text = f"R$ {troco:.2f}" if troco > 0 else "R$ 0,00"
+                troco_label = ctk.CTkLabel(item_frame, text=troco_text, font=ctk.CTkFont(size=11))
+                if troco > 0:
+                    troco_label.configure(text_color="green")
+                troco_label.grid(row=0, column=6, padx=5, pady=6, sticky="w")
                 
                 # Cliente
-                ctk.CTkLabel(item_frame, text=nome or "-", font=ctk.CTkFont(size=11)).grid(
-                    row=0, column=4, padx=5, pady=6, sticky="w")
+                cliente_text = nome or "-"
+                ctk.CTkLabel(item_frame, text=cliente_text, font=ctk.CTkFont(size=11)).grid(
+                    row=0, column=7, padx=5, pady=6, sticky="w")
                 
                 # Estado
                 ctk.CTkLabel(item_frame, text=estado or "-", font=ctk.CTkFont(size=11)).grid(
-                    row=0, column=5, padx=5, pady=6, sticky="w")
+                    row=0, column=8, padx=5, pady=6, sticky="w")
                 
                 # Cidade
                 ctk.CTkLabel(item_frame, text=cidade or "-", font=ctk.CTkFont(size=11)).grid(
-                    row=0, column=6, padx=5, pady=6, sticky="w")
+                    row=0, column=9, padx=5, pady=6, sticky="w")
+                
+                # Justificativa
+                justificativa_text = observacoes or "-"
+                if justificativa_text != "-":
+                    justificativa_label = ctk.CTkLabel(item_frame, text=justificativa_text, 
+                                                     font=ctk.CTkFont(size=10),
+                                                     text_color="orange")
+                else:
+                    justificativa_label = ctk.CTkLabel(item_frame, text=justificativa_text, 
+                                                     font=ctk.CTkFont(size=11))
+                justificativa_label.grid(row=0, column=10, padx=5, pady=6, sticky="w")
                 
                 # Configurar colunas
-                for i in range(7):
+                for i in range(11):
                     item_frame.grid_columnconfigure(i, weight=1)
             
             # Estatísticas gerais
@@ -522,6 +888,166 @@ class BilheteriaApp:
             
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao carregar dados: {str(e)}")
+    
+    def configurar_aba_banco(self):
+        """Configura a aba de informações do banco"""
+        banco_frame = self.notebook.tab("Informações do Banco")
+        
+        # Frame principal com scroll
+        main_scroll = ctk.CTkScrollableFrame(banco_frame)
+        main_scroll.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Título
+        titulo = ctk.CTkLabel(main_scroll, text="📊 Informações Detalhadas do Banco de Dados", 
+                             font=ctk.CTkFont(size=20, weight="bold"))
+        titulo.pack(pady=(0, 20))
+        
+        # Estatísticas gerais
+        stats_frame = ctk.CTkFrame(main_scroll)
+        stats_frame.pack(fill="x", pady=(0, 20), padx=10)
+        
+        ctk.CTkLabel(stats_frame, text="📈 Estatísticas Gerais", 
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 10))
+        
+        try:
+            stats = self.db.obter_estatisticas_gerais()
+            
+            # Métricas principais
+            metricas_frame = ctk.CTkFrame(stats_frame)
+            metricas_frame.pack(fill="x", padx=20, pady=10)
+            
+            # Métricas em layout horizontal
+            
+            # Total de vendas
+            vendas_frame = ctk.CTkFrame(metricas_frame)
+            vendas_frame.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+            ctk.CTkLabel(vendas_frame, text="Total de Vendas", font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+            ctk.CTkLabel(vendas_frame, text=str(stats['total_vendas']), 
+                        font=ctk.CTkFont(size=24, weight="bold")).pack(pady=(0, 10))
+            
+            # Total arrecadado
+            arrecadado_frame = ctk.CTkFrame(metricas_frame)
+            arrecadado_frame.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+            ctk.CTkLabel(arrecadado_frame, text="Total Arrecadado", font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+            ctk.CTkLabel(arrecadado_frame, text=f"R$ {stats['total_arrecadado']:.2f}", 
+                        font=ctk.CTkFont(size=24, weight="bold")).pack(pady=(0, 10))
+            
+            # Média por venda
+            media_frame = ctk.CTkFrame(metricas_frame)
+            media_frame.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+            ctk.CTkLabel(media_frame, text="Média por Venda", font=ctk.CTkFont(size=12)).pack(pady=(10, 5))
+            media = stats['total_arrecadado'] / stats['total_vendas'] if stats['total_vendas'] > 0 else 0
+            ctk.CTkLabel(media_frame, text=f"R$ {media:.2f}", 
+                        font=ctk.CTkFont(size=24, weight="bold")).pack(pady=(0, 10))
+            
+        except Exception as e:
+            ctk.CTkLabel(stats_frame, text=f"Erro ao carregar estatísticas: {str(e)}", 
+                        font=ctk.CTkFont(size=12), text_color="red").pack(pady=10)
+        
+        # Vendas por tipo
+        tipo_frame = ctk.CTkFrame(main_scroll)
+        tipo_frame.pack(fill="x", pady=(0, 20), padx=10)
+        
+        ctk.CTkLabel(tipo_frame, text="🎫 Vendas por Tipo de Ingresso", 
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 10))
+        
+        try:
+            vendas_por_tipo = self.db.obter_estatisticas_gerais()['vendas_por_tipo']
+            
+            if vendas_por_tipo:
+                for tipo, quantidade, total in vendas_por_tipo:
+                    item_frame = ctk.CTkFrame(tipo_frame)
+                    item_frame.pack(fill="x", padx=20, pady=5)
+                    
+                    col1, col2, col3 = ctk.CTkFrame(item_frame), ctk.CTkFrame(item_frame), ctk.CTkFrame(item_frame)
+                    col1.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+                    col2.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+                    col3.pack(side="left", fill="x", expand=True, padx=5, pady=10)
+                    
+                    ctk.CTkLabel(col1, text=f"Tipo: {tipo}", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=5)
+                    ctk.CTkLabel(col2, text=f"Quantidade: {quantidade}", font=ctk.CTkFont(size=12)).pack(pady=5)
+                    ctk.CTkLabel(col3, text=f"Total: R$ {total:.2f}", font=ctk.CTkFont(size=12)).pack(pady=5)
+            else:
+                ctk.CTkLabel(tipo_frame, text="Nenhuma venda registrada ainda.", 
+                            font=ctk.CTkFont(size=12)).pack(pady=20)
+                
+        except Exception as e:
+            ctk.CTkLabel(tipo_frame, text=f"Erro ao carregar vendas por tipo: {str(e)}", 
+                        font=ctk.CTkFont(size=12), text_color="red").pack(pady=10)
+        
+        # Informações do arquivo do banco
+        arquivo_frame = ctk.CTkFrame(main_scroll)
+        arquivo_frame.pack(fill="x", pady=(0, 20), padx=10)
+        
+        ctk.CTkLabel(arquivo_frame, text="💾 Informações do Arquivo de Banco", 
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 10))
+        
+        try:
+            import os
+            db_path = "bilheteria.db"
+            if os.path.exists(db_path):
+                file_size = os.path.getsize(db_path)
+                file_size_mb = file_size / (1024 * 1024)
+                
+                info_text = f"""
+📁 Localização: {os.path.abspath(db_path)}
+📏 Tamanho: {file_size_mb:.2f} MB ({file_size:,} bytes)
+🗄️ Tipo: SQLite Database
+🔒 Segurança: Arquivo local, sem acesso externo
+💾 Backup: Copie o arquivo bilheteria.db para backup
+                """
+                
+                ctk.CTkLabel(arquivo_frame, text=info_text, 
+                            font=ctk.CTkFont(size=11),
+                            justify="left").pack(padx=20, pady=10)
+                
+                # Botão de backup
+                backup_btn = ctk.CTkButton(arquivo_frame, text="📋 Copiar Caminho do Arquivo", 
+                                          command=lambda: self.copiar_caminho_banco(),
+                                          width=200)
+                backup_btn.pack(pady=(0, 15))
+            else:
+                ctk.CTkLabel(arquivo_frame, text="Arquivo de banco não encontrado.", 
+                            font=ctk.CTkFont(size=12), text_color="red").pack(pady=20)
+                
+        except Exception as e:
+            ctk.CTkLabel(arquivo_frame, text=f"Erro ao obter informações do arquivo: {str(e)}", 
+                        font=ctk.CTkFont(size=12), text_color="red").pack(pady=10)
+        
+        # Informações técnicas
+        tech_frame = ctk.CTkFrame(main_scroll)
+        tech_frame.pack(fill="x", pady=(0, 20), padx=10)
+        
+        ctk.CTkLabel(tech_frame, text="🔧 Informações Técnicas", 
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(15, 10))
+        
+        tech_text = """
+🗃️ Banco de Dados: SQLite 3
+📊 Capacidade: Até 281 TB (suficiente para milhões de vendas)
+⚡ Performance: Otimizado para consultas locais
+🔄 Transações: ACID compliant (seguro e confiável)
+📱 Compatibilidade: Funciona em qualquer sistema operacional
+🔐 Segurança: Dados locais, sem exposição externa
+💾 Backup: Arquivo único (.db) - fácil backup
+        """
+        
+        ctk.CTkLabel(tech_frame, text=tech_text, 
+                    font=ctk.CTkFont(size=11),
+                    justify="left").pack(padx=20, pady=10)
+    
+    def copiar_caminho_banco(self):
+        """Copia o caminho do arquivo de banco para área de transferência"""
+        import os
+        import pyperclip
+        
+        try:
+            db_path = os.path.abspath("bilheteria.db")
+            pyperclip.copy(db_path)
+            messagebox.showinfo("Sucesso", f"Caminho copiado para área de transferência:\n{db_path}")
+        except ImportError:
+            messagebox.showinfo("Caminho do Banco", f"Caminho do arquivo de banco:\n{os.path.abspath('bilheteria.db')}")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao copiar caminho: {str(e)}")
     
     def logout(self):
         """Realiza logout do usuário"""
